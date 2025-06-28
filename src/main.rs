@@ -1,6 +1,7 @@
 use core::ops::Range;
 use reqwest::header::{HeaderValue, RANGE};
-use zf_zebrachain::{BLOCK, ChainStore, Hash};
+use std::path::Path;
+use zf_zebrachain::{BLOCK, Chain, ChainStore, Hash};
 
 const CHAIN_HASH: &[u8] = b"EWKP7KIM6RAB748D6VLT68BES58BHDOAQP8BS4FLBGPQ69ROF5HTDEHPPXWCGFCC";
 const TAIL_BLOCK_HASH: &[u8] = b"DEFCQZHUV67IN5AUP7SYIHCR8NZNRZ7STS5H6RVM4WWSGMUZSAUKTXDQWD7JXE6C";
@@ -25,6 +26,50 @@ fn tail_range(count: u64) -> HeaderValue {
     let value = format!("bytes={start}-");
     println!("{value}");
     HeaderValue::from_str(&value).unwrap()
+}
+
+struct Downloader {
+    client: reqwest::blocking::Client,
+    store: ChainStore,
+}
+
+impl Downloader {
+    fn new(dir: &Path) -> Self {
+        Self {
+            client: reqwest::blocking::Client::new(),
+            store: ChainStore::new(dir),
+        }
+    }
+
+    fn get(&self, chain_hash: &Hash) -> reqwest::blocking::RequestBuilder {
+        let url = format!("https://json420.github.io/chains/{}", chain_hash);
+        self.client.get(&url)
+    }
+
+    fn init_chain(&self, chain_hash: &Hash) -> std::io::Result<Chain> {
+        let response = self
+            .get(chain_hash)
+            .header(RANGE, block_range(0))
+            .send()
+            .unwrap();
+        let body = response.bytes().unwrap();
+        self.store.create_chain(&body, chain_hash)
+    }
+
+    fn sync_chain(&self, chain_hash: &Hash) -> std::io::Result<Chain> {
+        let mut chain = self.store.open_chain(chain_hash)?;
+        let response = self
+            .get(chain_hash)
+            .header(RANGE, tail_range(chain.count()))
+            .send()
+            .unwrap();
+        let body = response.bytes().unwrap();
+        for i in 0..body.len() / BLOCK {
+            let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
+            chain.append(&buf)?;
+        }
+        Ok(chain)
+    }
 }
 
 fn main() {
