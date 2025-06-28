@@ -7,6 +7,7 @@ const TAIL_BLOCK_HASH: &[u8] = b"DEFCQZHUV67IN5AUP7SYIHCR8NZNRZ7STS5H6RVM4WWSGMU
 
 fn range_value(range: Range<u64>) -> HeaderValue {
     let value = format!("bytes={}-{}", range.start, range.end - 1);
+    println!("{value}");
     HeaderValue::from_str(&value).unwrap()
 }
 
@@ -17,6 +18,13 @@ fn block_range(block_index: u64) -> HeaderValue {
 fn block_bulk_range(block_index: u64, count: u64) -> HeaderValue {
     assert!(count > 0);
     range_value(block_index * BLOCK as u64..(block_index + count) * BLOCK as u64)
+}
+
+fn tail_range(count: u64) -> HeaderValue {
+    let start = count * BLOCK as u64;
+    let value = format!("bytes={start}-");
+    println!("{value}");
+    HeaderValue::from_str(&value).unwrap()
 }
 
 fn main() {
@@ -31,7 +39,7 @@ fn main() {
     println!("Downloading chain from {url}");
     let response = client
         .get(&url)
-        .header(RANGE, block_bulk_range(0, 410))
+        .header(RANGE, block_bulk_range(0, 200))
         .send()
         .unwrap();
 
@@ -48,16 +56,21 @@ fn main() {
         .create_chain(&body.slice(0..BLOCK), &chain_hash)
         .unwrap();
     for i in 1..body.len() / BLOCK {
-        chain
-            .append(&body.slice(i * BLOCK..(i + 1) * BLOCK))
-            .unwrap();
+        let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
+        let block_hash = Hash::from_slice(&buf.slice(0..40)).unwrap();
+        println!("{block_hash}");
+        chain.append(&buf).unwrap();
     }
 
+    // Re-open the chain and pretend we're checking for new blocks
+    // We need to make a bytes=start- style Range request to see if there are
+    // new blocks past what we have locally.
+    let mut chain = store.open_chain(&chain_hash).unwrap();
     loop {
         println!("");
         let response = client
             .get(&url)
-            .header(RANGE, block_range(chain.count()))
+            .header(RANGE, tail_range(chain.count()))
             .send()
             .unwrap();
         println!("status: {}", response.status());
@@ -71,9 +84,12 @@ fn main() {
         if body.len() < BLOCK {
             break;
         }
-        let block_hash = Hash::from_slice(&body.slice(0..40)).unwrap();
-        println!("{block_hash}");
-        chain.append(&body).unwrap();
+        for i in 0..body.len() / BLOCK {
+            let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
+            let block_hash = Hash::from_slice(&buf.slice(0..40)).unwrap();
+            println!("{block_hash}");
+            chain.append(&buf).unwrap();
+        }
     }
     assert_eq!(
         chain.tail().block_hash,
