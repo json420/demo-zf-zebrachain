@@ -5,18 +5,13 @@ use zf_zebrachain::{BLOCK, ChainStore, Hash};
 const CHAIN_HASH: &[u8] = b"EWKP7KIM6RAB748D6VLT68BES58BHDOAQP8BS4FLBGPQ69ROF5HTDEHPPXWCGFCC";
 const TAIL_BLOCK_HASH: &[u8] = b"DEFCQZHUV67IN5AUP7SYIHCR8NZNRZ7STS5H6RVM4WWSGMUZSAUKTXDQWD7JXE6C";
 
-fn range_header(range: Range<u64>) -> HeaderValue {
+fn range_value(range: Range<u64>) -> HeaderValue {
     let value = format!("bytes={}-{}", range.start, range.end - 1);
     HeaderValue::from_str(&value).unwrap()
 }
 
 fn block_range(block_index: u64) -> HeaderValue {
-    range_header(block_index * BLOCK as u64..(block_index + 1) * BLOCK as u64)
-}
-
-fn range_header_continue(offset: u64) -> HeaderValue {
-    let value = format!("bytes={}-", offset);
-    HeaderValue::from_str(&value).unwrap()
+    range_value(block_index * BLOCK as u64..(block_index + 1) * BLOCK as u64)
 }
 
 fn main() {
@@ -50,7 +45,7 @@ fn main() {
         println!("");
         let response = client
             .get(&url)
-            .header(RANGE, block_range(chain.count() + 1))
+            .header(RANGE, block_range(chain.count()))
             .send()
             .unwrap();
         println!("status: {}", response.status());
@@ -60,6 +55,7 @@ fn main() {
         if response.status() != 206 {
             panic!("Expected 206");
         }
+        let body = response.bytes().unwrap();
         if body.len() < BLOCK {
             break;
         }
