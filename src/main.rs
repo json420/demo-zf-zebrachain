@@ -52,6 +52,10 @@ impl Downloader {
             .header(RANGE, block_range(0))
             .send()
             .unwrap();
+        println!("status: {}", response.status());
+        for (key, value) in response.headers() {
+            println!("{key}: {value:?}");
+        }
         let body = response.bytes().unwrap();
         self.store.create_chain(&body, chain_hash)
     }
@@ -63,6 +67,10 @@ impl Downloader {
             .header(RANGE, tail_range(chain.count()))
             .send()
             .unwrap();
+        println!("status: {}", response.status());
+        for (key, value) in response.headers() {
+            println!("{key}: {value:?}");
+        }
         let body = response.bytes().unwrap();
         for i in 0..body.len() / BLOCK {
             let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
@@ -74,68 +82,12 @@ impl Downloader {
 
 fn main() {
     let tmpdir = tempfile::TempDir::new().unwrap();
-    let store = ChainStore::new(tmpdir.path());
+    let downloader = Downloader::new(tmpdir.path());
     let chain_hash = Hash::from_z32(CHAIN_HASH).unwrap();
 
-    let client = reqwest::blocking::Client::new();
+    let chain = downloader.init_chain(&chain_hash).unwrap();
+    let chain = downloader.sync_chain(&chain_hash).unwrap();
 
-    let url = format!("https://json420.github.io/chains/{}", chain_hash);
-
-    println!("Downloading chain from {url}");
-    let response = client
-        .get(&url)
-        .header(RANGE, block_bulk_range(0, 200))
-        .send()
-        .unwrap();
-
-    println!("status: {}", response.status());
-    for (key, value) in response.headers() {
-        println!("{key}: {value:?}");
-    }
-
-    if response.status() != 206 {
-        panic!("Expected 206");
-    }
-    let body = response.bytes().unwrap();
-    let mut chain = store
-        .create_chain(&body.slice(0..BLOCK), &chain_hash)
-        .unwrap();
-    for i in 1..body.len() / BLOCK {
-        let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
-        let block_hash = Hash::from_slice(&buf.slice(0..40)).unwrap();
-        println!("{block_hash}");
-        chain.append(&buf).unwrap();
-    }
-
-    // Re-open the chain and pretend we're checking for new blocks
-    // We need to make a bytes=start- style Range request to see if there are
-    // new blocks past what we have locally.
-    let mut chain = store.open_chain(&chain_hash).unwrap();
-    loop {
-        println!("");
-        let response = client
-            .get(&url)
-            .header(RANGE, tail_range(chain.count()))
-            .send()
-            .unwrap();
-        println!("status: {}", response.status());
-        for (key, value) in response.headers() {
-            println!("{key}: {value:?}");
-        }
-        if response.status() != 206 {
-            break;
-        }
-        let body = response.bytes().unwrap();
-        if body.len() < BLOCK {
-            break;
-        }
-        for i in 0..body.len() / BLOCK {
-            let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
-            let block_hash = Hash::from_slice(&buf.slice(0..40)).unwrap();
-            println!("{block_hash}");
-            chain.append(&buf).unwrap();
-        }
-    }
     assert_eq!(
         chain.tail().block_hash,
         Hash::from_z32(TAIL_BLOCK_HASH).unwrap()
