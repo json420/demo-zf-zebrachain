@@ -25,5 +25,6 @@ fn main() {
             chain.tail().block_hash,
             Hash::from_z32(TAIL_BLOCK_HASH).unwrap()
         );
+        assert_eq!(chain.count(), 420);
     }
 }
