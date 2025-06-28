@@ -10,6 +10,10 @@ fn range_header(range: Range<u64>) -> HeaderValue {
     HeaderValue::from_str(&value).unwrap()
 }
 
+fn block_range(block_index: u64) -> HeaderValue {
+    range_header(block_index * BLOCK as u64..(block_index + 1) * BLOCK as u64)
+}
+
 fn range_header_continue(offset: u64) -> HeaderValue {
     let value = format!("bytes={}-", offset);
     HeaderValue::from_str(&value).unwrap()
@@ -27,7 +31,7 @@ fn main() {
     println!("Downloading chain from {url}");
     let response = client
         .get(&url)
-        .header(RANGE, range_header(0..BLOCK as u64))
+        .header(RANGE, block_range(0))
         .send()
         .unwrap();
 
@@ -42,32 +46,30 @@ fn main() {
     let body = response.bytes().unwrap();
     let mut chain = store.create_chain(&body, &chain_hash).unwrap();
 
-    //let mut chain = store.open_chain(&chain_hash).unwrap();
-
-    println!("");
-    let response = client
-        .get(&url)
-        .header(RANGE, range_header_continue(BLOCK as u64))
-        .send()
-        .unwrap();
-
-    println!("status: {}", response.status());
-    for (key, value) in response.headers() {
-        println!("{key}: {value:?}");
-    }
-    if response.status() != 206 {
-        panic!("Expected 206");
-    }
-    for index in 0..body.len() / BLOCK {
-        println!("{index}");
-        chain
-            .append(&body.slice(index * BLOCK..(index + 1) * BLOCK))
+    loop {
+        println!("");
+        let response = client
+            .get(&url)
+            .header(RANGE, block_range(chain.count() + 1))
+            .send()
             .unwrap();
+        println!("status: {}", response.status());
+        for (key, value) in response.headers() {
+            println!("{key}: {value:?}");
+        }
+        if response.status() != 206 {
+            panic!("Expected 206");
+        }
+        if body.len() < BLOCK {
+            break;
+        }
+        let block_hash = Hash::from_slice(&body.slice(0..40)).unwrap();
+        println!("{block_hash}");
+        chain.append(&body).unwrap();
     }
     assert_eq!(
         chain.tail().block_hash,
         Hash::from_z32(TAIL_BLOCK_HASH).unwrap()
     );
     assert_eq!(chain.count(), 420);
-
 }
