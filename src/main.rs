@@ -14,6 +14,11 @@ fn block_range(block_index: u64) -> HeaderValue {
     range_value(block_index * BLOCK as u64..(block_index + 1) * BLOCK as u64)
 }
 
+fn block_bulk_range(block_index: u64, count: u64) -> HeaderValue {
+    assert!(count > 0);
+    range_value(block_index * BLOCK as u64..(block_index + count) * BLOCK as u64)
+}
+
 fn main() {
     let tmpdir = tempfile::TempDir::new().unwrap();
     let store = ChainStore::new(tmpdir.path());
@@ -26,7 +31,7 @@ fn main() {
     println!("Downloading chain from {url}");
     let response = client
         .get(&url)
-        .header(RANGE, block_range(0))
+        .header(RANGE, block_bulk_range(0, 410))
         .send()
         .unwrap();
 
@@ -39,7 +44,14 @@ fn main() {
         panic!("Expected 206");
     }
     let body = response.bytes().unwrap();
-    let mut chain = store.create_chain(&body, &chain_hash).unwrap();
+    let mut chain = store
+        .create_chain(&body.slice(0..BLOCK), &chain_hash)
+        .unwrap();
+    for i in 1..body.len() / BLOCK {
+        chain
+            .append(&body.slice(i * BLOCK..(i + 1) * BLOCK))
+            .unwrap();
+    }
 
     loop {
         println!("");
@@ -53,7 +65,7 @@ fn main() {
             println!("{key}: {value:?}");
         }
         if response.status() != 206 {
-            panic!("Expected 206");
+            break;
         }
         let body = response.bytes().unwrap();
         if body.len() < BLOCK {
@@ -68,4 +80,5 @@ fn main() {
         Hash::from_z32(TAIL_BLOCK_HASH).unwrap()
     );
     assert_eq!(chain.count(), 420);
+    println!("chain synced okay");
 }
