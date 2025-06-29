@@ -37,28 +37,38 @@ impl Downloader {
     fn get_range(&self, chain_hash: &Hash, range: HeaderValue) -> reqwest::blocking::Response {
         let url = format!("https://json420.github.io/chains/{}", chain_hash);
         println!("GET {url} {range:?}");
-        self.client.get(&url).header(RANGE, range).send().unwrap()
+        let response = self.client.get(&url).header(RANGE, range).send().unwrap();
+        println!("{}", response.status());
+        for (key, value) in response.headers() {
+            println!("    {key}: {value:?}");
+        }
+        response
     }
 
     fn init_chain(&self, chain_hash: &Hash) -> std::io::Result<Chain> {
         let response = self.get_range(chain_hash, block_range(0));
-        println!("status: {}", response.status());
         let body = response.bytes().unwrap();
-        self.store.create_chain(&body, chain_hash)
+        let chain = self.store.create_chain(&body, chain_hash)?;
+        println!("Created chain {chain_hash}");
+        println!("");
+        Ok(chain)
     }
 
     fn sync_chain(&self, chain_hash: &Hash) -> std::io::Result<Chain> {
         let mut chain = self.store.open_chain(chain_hash)?;
         let response = self.get_range(chain_hash, tail_range(chain.count()));
-        println!("status: {}", response.status());
         if response.status() == 206 {
             let body = response.bytes().unwrap();
             for i in 0..body.len() / BLOCK {
                 let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
                 chain.append(&buf)?;
             }
-            println!("Appended {} new blocks", body.len() / BLOCK);
+            println!("Appended {} new blocks to {chain_hash}", body.len() / BLOCK);
+        } else {
+            assert_eq!(response.status(), 416);
+            println!("No new blocks available for {chain_hash}");
         }
+        println!("");
         Ok(chain)
     }
 }
@@ -77,5 +87,5 @@ fn main() {
         Hash::from_z32(TAIL_BLOCK_HASH).unwrap()
     );
     assert_eq!(chain.count(), 420);
-    println!("chain synced okay");
+    println!("Demo finished");
 }
