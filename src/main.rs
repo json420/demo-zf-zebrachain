@@ -53,6 +53,7 @@ impl Downloader {
             .send()
             .unwrap();
         println!("status: {}", response.status());
+        assert_eq!(response.status(), 206);
         for (key, value) in response.headers() {
             println!("{key}: {value:?}");
         }
@@ -71,10 +72,12 @@ impl Downloader {
         for (key, value) in response.headers() {
             println!("{key}: {value:?}");
         }
-        let body = response.bytes().unwrap();
-        for i in 0..body.len() / BLOCK {
-            let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
-            chain.append(&buf)?;
+        if response.status() == 206 {
+            let body = response.bytes().unwrap();
+            for i in 0..body.len() / BLOCK {
+                let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
+                chain.append(&buf)?;
+            }
         }
         Ok(chain)
     }
@@ -86,6 +89,7 @@ fn main() {
     let chain_hash = Hash::from_z32(CHAIN_HASH).unwrap();
 
     let chain = downloader.init_chain(&chain_hash).unwrap();
+    let chain = downloader.sync_chain(&chain_hash).unwrap();
     let chain = downloader.sync_chain(&chain_hash).unwrap();
 
     assert_eq!(
