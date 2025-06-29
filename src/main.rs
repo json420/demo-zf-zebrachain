@@ -8,7 +8,6 @@ const TAIL_BLOCK_HASH: &[u8] = b"DEFCQZHUV67IN5AUP7SYIHCR8NZNRZ7STS5H6RVM4WWSGMU
 
 fn range_value(range: Range<u64>) -> HeaderValue {
     let value = format!("bytes={}-{}", range.start, range.end - 1);
-    println!("{value}");
     HeaderValue::from_str(&value).unwrap()
 }
 
@@ -19,7 +18,6 @@ fn block_range(block_index: u64) -> HeaderValue {
 fn tail_range(count: u64) -> HeaderValue {
     let start = count * BLOCK as u64;
     let value = format!("bytes={start}-");
-    println!("{value}");
     HeaderValue::from_str(&value).unwrap()
 }
 
@@ -36,34 +34,22 @@ impl Downloader {
         }
     }
 
-    fn get(&self, chain_hash: &Hash) -> reqwest::blocking::RequestBuilder {
+    fn get_range(&self, chain_hash: &Hash, range: HeaderValue) -> reqwest::blocking::Response {
         let url = format!("https://json420.github.io/chains/{}", chain_hash);
-        println!("GET {url}");
-        self.client.get(&url)
+        println!("GET {url} {range:?}");
+        self.client.get(&url).header(RANGE, range).send().unwrap()
     }
 
     fn init_chain(&self, chain_hash: &Hash) -> std::io::Result<Chain> {
-        let response = self
-            .get(chain_hash)
-            .header(RANGE, block_range(0))
-            .send()
-            .unwrap();
+        let response = self.get_range(chain_hash, block_range(0));
         println!("status: {}", response.status());
-        // assert_eq!(response.status(), 206);
-        // for (key, value) in response.headers() {
-        //     println!("{key}: {value:?}");
-        // }
         let body = response.bytes().unwrap();
         self.store.create_chain(&body, chain_hash)
     }
 
     fn sync_chain(&self, chain_hash: &Hash) -> std::io::Result<Chain> {
         let mut chain = self.store.open_chain(chain_hash)?;
-        let response = self
-            .get(chain_hash)
-            .header(RANGE, tail_range(chain.count()))
-            .send()
-            .unwrap();
+        let response = self.get_range(chain_hash, tail_range(chain.count()));
         println!("status: {}", response.status());
         if response.status() == 206 {
             let body = response.bytes().unwrap();
