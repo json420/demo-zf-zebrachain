@@ -16,11 +16,6 @@ fn block_range(block_index: u64) -> HeaderValue {
     range_value(block_index * BLOCK as u64..(block_index + 1) * BLOCK as u64)
 }
 
-fn block_bulk_range(block_index: u64, count: u64) -> HeaderValue {
-    assert!(count > 0);
-    range_value(block_index * BLOCK as u64..(block_index + count) * BLOCK as u64)
-}
-
 fn tail_range(count: u64) -> HeaderValue {
     let start = count * BLOCK as u64;
     let value = format!("bytes={start}-");
@@ -43,6 +38,7 @@ impl Downloader {
 
     fn get(&self, chain_hash: &Hash) -> reqwest::blocking::RequestBuilder {
         let url = format!("https://json420.github.io/chains/{}", chain_hash);
+        println!("GET {url}");
         self.client.get(&url)
     }
 
@@ -53,10 +49,10 @@ impl Downloader {
             .send()
             .unwrap();
         println!("status: {}", response.status());
-        assert_eq!(response.status(), 206);
-        for (key, value) in response.headers() {
-            println!("{key}: {value:?}");
-        }
+        // assert_eq!(response.status(), 206);
+        // for (key, value) in response.headers() {
+        //     println!("{key}: {value:?}");
+        // }
         let body = response.bytes().unwrap();
         self.store.create_chain(&body, chain_hash)
     }
@@ -69,15 +65,13 @@ impl Downloader {
             .send()
             .unwrap();
         println!("status: {}", response.status());
-        for (key, value) in response.headers() {
-            println!("{key}: {value:?}");
-        }
         if response.status() == 206 {
             let body = response.bytes().unwrap();
             for i in 0..body.len() / BLOCK {
                 let buf = body.slice(i * BLOCK..(i + 1) * BLOCK);
                 chain.append(&buf)?;
             }
+            println!("Appended {} new blocks", body.len() / BLOCK);
         }
         Ok(chain)
     }
@@ -88,8 +82,8 @@ fn main() {
     let downloader = Downloader::new(tmpdir.path());
     let chain_hash = Hash::from_z32(CHAIN_HASH).unwrap();
 
-    let chain = downloader.init_chain(&chain_hash).unwrap();
-    let chain = downloader.sync_chain(&chain_hash).unwrap();
+    let _chain = downloader.init_chain(&chain_hash).unwrap();
+    let _chain = downloader.sync_chain(&chain_hash).unwrap();
     let chain = downloader.sync_chain(&chain_hash).unwrap();
 
     assert_eq!(
