@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 reqwest = { version = "0.12.24", features = ["blocking"] }
 tempfile = "3.23.0"
-zf-zebrachain = "0.0.12"
+zf-zebrachain = { git = "https://github.com/zebrafactory/zebrachain.git", version = "0.0.12" }
