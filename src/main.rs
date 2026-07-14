@@ -52,7 +52,7 @@ impl Downloader {
         let body = response.bytes().unwrap();
         let chain = self.store.create_chain(&body, chain_hash)?;
         println!("Created chain {chain_hash}");
-        println!("");
+        println!();
         Ok(chain)
     }
 
@@ -70,7 +70,7 @@ impl Downloader {
             assert_eq!(response.status(), 416);
             println!("No new blocks available for {chain_hash}");
         }
-        println!("");
+        println!();
         Ok(chain)
     }
 }
