@@ -1,4 +1,3 @@
-use core::ops::Range;
 use reqwest::header::{HeaderValue, RANGE};
 use std::path::Path;
 use zf_zebrachain::{BLOCK, Chain, ChainStore, Hash};
@@ -8,16 +7,13 @@ const CHAIN_HASH: &[u8] =
 const TAIL_BLOCK_HASH: &[u8] =
     b"MEJYM47KQ6F4ZSQ588YAP7DKPI8MNNGVQ45KW5XNM7UG8XAF6OJ7VAAP9TYARW8SXARIOS4J";
 
-fn range_value(range: Range<u64>) -> HeaderValue {
+fn block_range(block_index: u64) -> HeaderValue {
+    let range = block_index * BLOCK as u64..(block_index + 1) * BLOCK as u64;
     let value = format!("bytes={}-{}", range.start, range.end - 1);
     HeaderValue::from_str(&value).unwrap()
 }
 
-fn block_range(block_index: u64) -> HeaderValue {
-    range_value(block_index * BLOCK as u64..(block_index + 1) * BLOCK as u64)
-}
-
-fn tail_range(count: u64) -> HeaderValue {
+fn trailing_range(count: u64) -> HeaderValue {
     let start = count * BLOCK as u64;
     let value = format!("bytes={start}-");
     HeaderValue::from_str(&value).unwrap()
@@ -58,7 +54,7 @@ impl Downloader {
 
     fn sync_chain(&self, chain_hash: &Hash) -> std::io::Result<Chain> {
         let mut chain = self.store.open_chain(chain_hash)?;
-        let response = self.get_range(chain_hash, tail_range(chain.count()));
+        let response = self.get_range(chain_hash, trailing_range(chain.count()));
         if response.status() == 206 {
             let body = response.bytes().unwrap();
             for i in 0..body.len() / BLOCK {
