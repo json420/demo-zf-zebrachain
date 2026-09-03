@@ -2045,8 +2045,9 @@ dependencies = [
 
 [[package]]
 name = "zf-zebrachain"
-version = "0.0.15"
-source = "git+https://github.com/zebrafactory/zebrachain.git?branch=main#6ac743ac3ef99316c747616a1cbc8a3123f68905"
+version = "0.0.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21f0c108c87c8aafb4fc400a26df3663867be4f55f7fad46104afe4085cc4c15"
 dependencies = [
  "argon2",
  "arrayvec",
