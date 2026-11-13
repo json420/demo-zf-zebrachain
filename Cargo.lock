@@ -1265,9 +1265,9 @@ checksum = "eec689c0bc40ff2458a5977b6619cb718087084a18e02a131c599b62d05e1a5f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.16"
+version = "0.103.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
+checksum = "e3a0760a887c14823fca5a1c970b01d47c328c696c0c64829d1df50e8f853fd5"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -2074,8 +2074,9 @@ dependencies = [
 
 [[package]]
 name = "zf-zebrachain"
-version = "0.0.16"
-source = "git+https://github.com/zebrafactory/zebrachain.git?branch=main#ed9316179097473cec43884499c72a8883ff4f2a"
+version = "0.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "113f1d60f377fd52445cb37d54943f4267074e58bfb5d78dd4dbae937797d2a0"
 dependencies = [
  "argon2",
  "blake2",
@@ -2091,9 +2092,9 @@ dependencies = [
 
 [[package]]
 name = "zf-zebrachaos"
-version = "0.0.1-rc.0"
+version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75bd0cec638ec97b35b8880a9ec4b3217bf73b545f3925ddaff128597f23f538"
+checksum = "359e8f813b9c8a25e1783fb5bff4180997600dcdbccaeffd49f489e4f9f9df3c"
 dependencies = [
  "arrayvec",
  "blake2",
